@@ -36,16 +36,19 @@ struct ttt{
         board[row][col] = player;
         return true;
     }
+    void print_row(int row){
+        for (int j = 0; j < 3; j++) {
+            if (board_filled[row][j]) {
+                cout << (board[row][j] ? "X" : "O");
+            } else {
+                cout << ".";
+            }
+            if(j<2) cout << "|";
+        }
+    }
     void print_board() {
         for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 3; j++) {
-                if (board_filled[i][j]) {
-                    cout << (board[i][j] ? "X" : "O");
-                } else {
-                    cout << ".";
-                }
-                if(j<2) cout << "|";
-            }
+            print_row(i);
             if(i<2) cout << "\n-+-+-\n";
         }
         cout<<'\n'<<endl;
@@ -118,14 +121,6 @@ void startgame() {
     }
 }
 
-int main(){
-    ios_base::sync_with_stdio(false);
-    cin.tie(nullptr);
-    cout.tie(nullptr);
-    ttt game;
-    game.play();
-}
-
 struct ult_ttt{
 
     ttt big_board;
@@ -168,4 +163,68 @@ struct ult_ttt{
             }
         }
     }
+    void print_board(){
+        for (int br = 0; br < 3; br++) {
+            for (int r = 0; r < 3; r++) {
+                for (int bc = 0; bc < 3; bc++){
+                    if(big_board.board_filled[br][bc]){
+                        if(big_board.board[br][bc]){
+                            //X
+                            if(r==0) cout<<"\\   /";
+                            if(r==1) cout<<"  X  ";
+                            if(r==2) cout<<"/   \\";
+                        }
+                        else{
+                            //O
+                            if(r==0) cout<<"  _  ";
+                            // " / \\ "
+                            if(r==1) cout<<"|   |";
+                            if(r==2) cout<<" \\_/ ";
+                        }
+                    }
+                    else small_boards[br][bc].print_row(r);
+                    if(bc<2) cout << " || ";
+                    
+                }
+                //if(r<2) cout<<"\n-+-+- || -+-+- || -+-+-\n";
+                
+
+                if(r<2){
+                    cout<<'\n';
+                    for (int bc = 0; bc < 3; bc++){
+                        if(big_board.board_filled[br][bc]){
+                            if(big_board.board[br][bc]){
+                                //X
+                                if(r==0) cout<<" \\ / ";
+                                if(r==1) cout<<" / \\ ";
+                            }
+                            else{
+                                //O
+                                if(r==0) cout<<" / \\ ";
+                                if(r==1) cout<<"\\   /";
+                            }
+                        }
+                        else cout<<"-+-+-";
+                        if(bc<2) cout << " || ";
+                        
+                    }
+                    cout<<'\n';
+                }
+                
+            }
+            if(br<2) cout << "\n      ||       ||\n======++=======++=======\n      ||       ||\n";
+        }
+        cout<<'\n'<<endl;
+    }
 };
+
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+    cout.tie(nullptr);
+    ult_ttt game;
+    game.big_board.move(0,0,1);
+    game.big_board.move(1,1,0);
+    game.print_board();
+    cout<<""<<endl;
+}
