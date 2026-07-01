@@ -52,6 +52,39 @@ constexpr std::array<std::uint16_t, 8> LINES = {
     0007, 0070, 0700, 0111, 0222, 0444, 0421, 0124,
 };
 
+// ---- Zobrist hashing for the transposition table ----
+// A position is fully described by per-board occupancy (sx/so), side to move,
+// and the forced board. The meta status is a pure function of sx/so, so it is
+// NOT hashed separately. Keys come from a fixed-seed splitmix64 stream, so they
+// are identical across runs/builds.
+struct Zobrist {
+    std::uint64_t cell[9][9][2]; // [board][cell][X=0 / O=1]
+    std::uint64_t side;          // XOR-ed in when it is O's turn
+    std::uint64_t forced[10];    // forced board in -1..8 -> index 0..9
+};
+
+constexpr std::uint64_t sm_next(std::uint64_t& s) {
+    s += 0x9E3779B97F4A7C15ull;
+    std::uint64_t x = s;
+    x = (x ^ (x >> 30)) * 0xBF58476D1CE4E5B9ull;
+    x = (x ^ (x >> 27)) * 0x94D049BB133111EBull;
+    return x ^ (x >> 31);
+}
+
+constexpr Zobrist make_zobrist() {
+    Zobrist z = {};
+    std::uint64_t s = 0x0123456789ABCDEFull;
+    for (int b = 0; b < 9; b++)
+        for (int c = 0; c < 9; c++)
+            for (int p = 0; p < 2; p++)
+                z.cell[b][c][p] = sm_next(s);
+    z.side = sm_next(s);
+    for (int i = 0; i < 10; i++) z.forced[i] = sm_next(s);
+    return z;
+}
+
+constexpr Zobrist ZOB = make_zobrist();
+
 struct BitState {
     std::uint16_t sx[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0}; // X marks per small board (board = br*3+bc)
     std::uint16_t so[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0}; // O marks per small board
@@ -60,6 +93,7 @@ struct BitState {
     std::uint16_t meta_d = 0; // boards drawn (full, no winner)
     std::int8_t forced = -1;  // raw forced board 0..8, or -1 for free choice
     char to_move = 'X';
+    std::uint64_t key = 0;    // Zobrist hash, maintained incrementally by apply()
 
     std::uint16_t resolved() const { return meta_x | meta_o | meta_d; }
     bool board_resolved(int b) const { return (resolved() >> b) & 1; }
@@ -96,6 +130,17 @@ inline BitState from_ult(const ult_ttt& g, char to_move, int forced_br, int forc
                     ? static_cast<std::int8_t>(-1)
                     : static_cast<std::int8_t>(forced_br * 3 + forced_bc);
 
+    // Full Zobrist key (apply() maintains it incrementally thereafter).
+    std::uint64_t k = 0;
+    for (int b = 0; b < 9; b++) {
+        std::uint16_t x = bs.sx[b];
+        while (x) { int c = __builtin_ctz(x); k ^= ZOB.cell[b][c][0]; x &= x - 1; }
+        std::uint16_t o = bs.so[b];
+        while (o) { int c = __builtin_ctz(o); k ^= ZOB.cell[b][c][1]; o &= o - 1; }
+    }
+    if (bs.to_move == 'O') k ^= ZOB.side;
+    k ^= ZOB.forced[bs.forced + 1];
+    bs.key = k;
     return bs;
 }
 
@@ -142,9 +187,11 @@ inline int gather_moves(const BitState& st, BMove* out) {
 inline bool apply(BitState& st, int board, int cell) {
     const bool x_to_move = (st.to_move == 'X');
     const std::uint16_t bit = static_cast<std::uint16_t>(1u << cell);
+    const std::int8_t old_forced = st.forced;
 
     std::uint16_t& mine = x_to_move ? st.sx[board] : st.so[board];
     mine |= bit;
+    st.key ^= ZOB.cell[board][cell][x_to_move ? 0 : 1]; // place the stone
 
     bool game_over = false;
     if (is_win(mine)) {
@@ -161,6 +208,8 @@ inline bool apply(BitState& st, int board, int cell) {
     else if (st.board_resolved(cell)) st.forced = -1; // sent to a finished board -> free choice
     else st.forced = static_cast<std::int8_t>(cell);
 
+    st.key ^= ZOB.forced[old_forced + 1] ^ ZOB.forced[st.forced + 1]; // forced board change
+    st.key ^= ZOB.side;                                               // side to move flips
     st.to_move = x_to_move ? 'O' : 'X';
     return game_over;
 }
