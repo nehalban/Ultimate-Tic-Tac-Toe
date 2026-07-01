@@ -1,7 +1,10 @@
 #include "ultimate_ttt.hpp"
 #include "ultimate_bot.hpp"
+#include "mcts_bot.hpp"
 
+#include <chrono>
 #include <cstdint>
+#include <cstdio>
 #include <iostream>
 #include <vector>
 
@@ -26,9 +29,22 @@ int main() {
     }
 
     if (mode == 2) {
+        std::cout << "Choose opponent AI:\n"
+                  << "  1) Negamax (alpha-beta)\n"
+                  << "  2) MCTS\n"
+                  << "Enter 1-2: ";
+        int algo = 1;
+        if (!(std::cin >> algo)) return 0;
+
         int depth = 3;
-        std::cout << "Bot depth (suggest 2-4): ";
-        if (!(std::cin >> depth)) return 0;
+        mcts::Config mc;
+        if (algo == 2) {
+            std::cout << "MCTS iterations (e.g. 20000): ";
+            if (!(std::cin >> mc.iterations)) return 0;
+        } else {
+            std::cout << "Bot depth (suggest 2-4): ";
+            if (!(std::cin >> depth)) return 0;
+        }
 
         ultimate_bot::State st;
         st.to_move = 'X';
@@ -69,8 +85,25 @@ int main() {
                     return 0;
                 }
             } else {
-                ult_ttt::Move bm = ultimate_bot::best_move(st, depth, w, seed++);
+                ult_ttt::Move bm;
+                long long work = 0;
+                const char* unit = "";
+                auto t0 = std::chrono::steady_clock::now();
+                if (algo == 2) {
+                    bm = mcts::best_move(st.g, st.to_move, st.forced_br, st.forced_bc, mc);
+                    work = mc.iterations;
+                    unit = "paths searched";
+                    mc.seed++; // vary rollouts across moves
+                } else {
+                    bm = ultimate_bot::best_move(st, depth, w, seed++);
+                    work = ultimate_bot::node_counter();
+                    unit = "positions searched";
+                }
+                double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
                 std::cout << "Bot plays: (" << bm.br << "," << bm.bc << ") (" << bm.r << "," << bm.c << ")\n";
+                char buf[96];
+                std::snprintf(buf, sizeof(buf), "  (%lld %s in %.3f seconds)\n", work, unit, secs);
+                std::cout << buf;
                 ult_ttt::ApplyResult res;
                 (void)ultimate_bot::apply(st, bm, res);
                 if (res.game_over) {
