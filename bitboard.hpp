@@ -7,14 +7,13 @@
 // and legal-move generation into a bit scan.
 //
 // This file is pure game mechanics: no heuristics live here. Scoring/search that
-// depends on Weights stays in ultimate_bot.hpp.
+// depends on Weights stays in negamax_bot.hpp.
 
 #include "ultimate_ttt.hpp"
 
 #include <array>
 #include <cstdint>
 
-namespace ultimate_bot {
 namespace bb {
 
 constexpr std::uint16_t FULL = 0x1FF; // all 9 cells of a 3x3 board
@@ -215,4 +214,3 @@ inline bool apply(BitState& st, int board, int cell) {
 }
 
 } // namespace bb
-} // namespace ultimate_bot

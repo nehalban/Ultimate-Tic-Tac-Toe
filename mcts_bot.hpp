@@ -28,8 +28,6 @@
 
 namespace mcts {
 
-namespace bb = ultimate_bot::bb; // bitboard primitives live in ultimate_bot::bb
-
 struct Config {
     int iterations = 20000;       // number of MCTS simulations per move
     double c = 1.4142135623730951; // UCB1 exploration constant (~sqrt(2))

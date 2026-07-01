@@ -1,5 +1,11 @@
 #pragma once
 
+// Depth-limited negamax engine with alpha-beta pruning, a transposition table,
+// move ordering, killer moves, and self-play weight tuning. Operates on the
+// bitboard position (bb::BitState); the game/IO type ult_ttt is only converted at
+// the search root. Shared search infrastructure lives in the top-level bb:: and
+// tt:: namespaces (bitboard.hpp / transposition.hpp).
+
 #include "ultimate_ttt.hpp"
 #include "bitboard.hpp"
 #include "transposition.hpp"
@@ -10,7 +16,7 @@
 #include <random>
 #include <vector>
 
-namespace ultimate_bot {
+namespace negamax {
 
 struct Weights {
     // Terminal-ish / high level
@@ -349,5 +355,5 @@ inline Weights train(Weights start, const TrainConfig& cfg, std::vector<int>* hi
     return bestW;
 }
 
-} // namespace ultimate_bot
+} // namespace negamax
 

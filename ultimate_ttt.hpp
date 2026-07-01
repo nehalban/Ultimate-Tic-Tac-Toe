@@ -17,9 +17,6 @@ struct ult_ttt {
         {'.', '.', '.'},
         {'.', '.', '.'},
     };
-    /// Last meta cell filled (for incremental meta win check in search / eval).
-    int last_meta_br = -1;
-    int last_meta_bc = -1;
 
     struct Move {
         int br, bc; // big-row, big-col (0..2)
@@ -61,24 +58,12 @@ struct ult_ttt {
         if (w == 'X' || w == 'O') {
             small_status[br][bc] = w;
             big_board.meta_fill(br, bc, w);
-            last_meta_br = br;
-            last_meta_bc = bc;
             return;
         }
         if (small_boards[br][bc].is_full()) {
             small_status[br][bc] = 'D';
             big_board.meta_fill(br, bc, 'D');
-            last_meta_br = br;
-            last_meta_bc = bc;
         }
-    }
-
-    /// Meta win only from lines of X or O; uses last filled meta cell.
-    char meta_winner() const {
-        if (last_meta_br < 0 || last_meta_bc < 0) return '.';
-        char c = big_board.cell[last_meta_br][last_meta_bc];
-        if (c != 'X' && c != 'O') return '.';
-        return big_board.winner_after_move(last_meta_br, last_meta_bc);
     }
 
     // Forced board is either (forced_br,forced_bc) if playable, else (-1,-1)
@@ -121,10 +106,6 @@ struct ult_ttt {
 
     ApplyResult apply_move(const Move& m, char player, int forced_br = -1, int forced_bc = -1) {
         ApplyResult res;
-        // auto forced = normalize_forced(forced_br, forced_bc); //?
-        // forced_br = forced.first;
-        // forced_bc = forced.second;
-
         if (player != 'X' && player != 'O') return res;
         if (!is_legal_move(m, forced_br, forced_bc)) return res;
 
@@ -148,14 +129,10 @@ struct ult_ttt {
             return res;
         }
 
-        // Forced next board depends on where you played inside the small board.
-        // if (board_done(m.r, m.c)) { //unnecessary check
-        //     res.next_br = -1;
-        //     res.next_bc = -1;
-        // } else {
-            res.next_br = m.r;
-            res.next_bc = m.c;
-        // }
+        // Forced next board is the small cell you just played into. If that board is
+        // already finished the caller (normalize_forced) turns it into a free choice.
+        res.next_br = m.r;
+        res.next_bc = m.c;
         res.ok = true;
         return res;
     }

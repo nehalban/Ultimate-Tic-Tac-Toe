@@ -12,13 +12,10 @@
 // fixed-depth search. There is no cross-depth contamination, so a depth>=needed
 // hit returns precisely the value a fresh search would compute.
 
-#include "bitboard.hpp"
-
 #include <cstddef>
 #include <cstdint>
 #include <vector>
 
-namespace ultimate_bot {
 namespace tt {
 
 enum Flag : std::uint8_t { NONE = 0, EXACT = 1, LOWER = 2, UPPER = 3 };
@@ -92,4 +89,3 @@ private:
 };
 
 } // namespace tt
-} // namespace ultimate_bot

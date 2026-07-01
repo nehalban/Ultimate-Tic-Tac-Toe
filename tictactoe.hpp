@@ -46,14 +46,6 @@ struct ttt {
         }
     }
 
-    void print_board() const {
-        for (int i = 0; i < 3; i++) {
-            print_row(i);
-            if (i < 2) std::cout << "\n-+-+-\n";
-        }
-        std::cout << "\n\n";
-    }
-
     bool is_full() const { return moves >= 9; }
 
     /// Only lines through (row,col) can change on this move. 'D' cannot win a line.
