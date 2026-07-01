@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ultimate_ttt.hpp"
+#include "bitboard.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -46,57 +47,48 @@ inline int pos_bonus(int r, int c, const Weights& w) {
     return w.edge;
 }
 
-// Scores a 3-cell line for "me". Treats 'D' as a hard blocker (line cannot be completed).
-inline int score_line(char a, char b, char c, char me, const Weights& w) {
-    const char opp = other(me);
-    if (a == 'D' || b == 'D' || c == 'D') return 0;
-
-    int me_cnt = (a == me) + (b == me) + (c == me);
-    int opp_cnt = (a == opp) + (b == opp) + (c == opp);
-    int empty_cnt = (a == '.') + (b == '.') + (c == '.');
-
-    if (me_cnt && opp_cnt) return 0;
-    if (me_cnt == 2 && empty_cnt == 1) return w.two_in_row;
-    if (me_cnt == 1 && empty_cnt == 2) return w.one_in_row;
-    if (opp_cnt == 2 && empty_cnt == 1) return -w.opp_two_in_row;
-    if (opp_cnt == 1 && empty_cnt == 2) return -w.opp_one_in_row;
-    return 0;
-}
-
-inline int score_board(const ttt& b, char me, const Weights& w) {
+// Scores one 3x3 board line-by-line for "me", given the X/O occupancy masks and a
+// `blocked` mask of cells that can never complete a line ('D' on the meta board).
+// Bitboard equivalent of the old char-grid score_line/score_board pair.
+inline int score_board_bits(std::uint16_t mine, std::uint16_t opp, std::uint16_t blocked,
+                            const Weights& w) {
     int s = 0;
-    for (int r = 0; r < 3; r++) {
-        s += score_line(b.cell[r][0], b.cell[r][1], b.cell[r][2], me, w);
+    for (std::uint16_t L : bb::LINES) {
+        if (blocked & L) continue; // line cannot be completed
+        int me_cnt = bb::popcount9(mine & L);
+        int opp_cnt = bb::popcount9(opp & L);
+        int empty_cnt = 3 - me_cnt - opp_cnt;
+        if (me_cnt && opp_cnt) continue;
+        if (me_cnt == 2 && empty_cnt == 1) s += w.two_in_row;
+        else if (me_cnt == 1 && empty_cnt == 2) s += w.one_in_row;
+        else if (opp_cnt == 2 && empty_cnt == 1) s -= w.opp_two_in_row;
+        else if (opp_cnt == 1 && empty_cnt == 2) s -= w.opp_one_in_row;
     }
-    for (int c = 0; c < 3; c++) {
-        s += score_line(b.cell[0][c], b.cell[1][c], b.cell[2][c], me, w);
-    }
-    s += score_line(b.cell[0][0], b.cell[1][1], b.cell[2][2], me, w);
-    s += score_line(b.cell[0][2], b.cell[1][1], b.cell[2][0], me, w);
     return s;
 }
 
-inline int evaluate(const State& st, char me, const Weights& w) {
+inline int evaluate(const bb::BitState& st, bool me_is_x, const Weights& w) {
     // Terminal checks on meta board.
-    char meta_w = st.g.meta_winner();
-    if (meta_w == me) return w.meta_win;
-    if (meta_w == other(me)) return -w.meta_win;
-    if (st.g.big_board.is_full()) return 0;
+    if (bb::is_win(st.meta_x)) return me_is_x ? w.meta_win : -w.meta_win;
+    if (bb::is_win(st.meta_o)) return me_is_x ? -w.meta_win : w.meta_win;
+    if (st.all_resolved()) return 0;
+
+    const std::uint16_t meta_mine = me_is_x ? st.meta_x : st.meta_o;
+    const std::uint16_t meta_opp = me_is_x ? st.meta_o : st.meta_x;
 
     int score = 0;
 
-    // Meta board heuristics (treat D as blocker).
-    score += 20 * score_board(st.g.big_board, me, w);
+    // Meta board heuristics (drawn boards block lines, like the old 'D').
+    score += 20 * score_board_bits(meta_mine, meta_opp, st.meta_d, w);
 
-    // Finished small boards are valuable.
-    for (int br = 0; br < 3; br++) {
-        for (int bc = 0; bc < 3; bc++) {
-            char status = st.g.small_status[br][bc];
-            if (status == me) score += w.small_win;
-            else if (status == other(me)) score -= w.small_win;
-            else if (status == '.') {
-                score += score_board(st.g.small_boards[br][bc], me, w);
-            }
+    // Finished small boards are valuable; ongoing boards scored line-by-line.
+    for (int b = 0; b < 9; b++) {
+        if ((meta_mine >> b) & 1) score += w.small_win;
+        else if ((meta_opp >> b) & 1) score -= w.small_win;
+        else if (!((st.meta_d >> b) & 1)) {
+            std::uint16_t mine = me_is_x ? st.sx[b] : st.so[b];
+            std::uint16_t opp = me_is_x ? st.so[b] : st.sx[b];
+            score += score_board_bits(mine, opp, 0, w);
         }
     }
 
@@ -112,28 +104,29 @@ inline bool apply(State& st, const ult_ttt::Move& m, ult_ttt::ApplyResult& res_o
     return true;
 }
 
-inline int negamax(State st, int depth, int alpha, int beta, char me, const Weights& w) {
-    // Check terminal by meta board winner/full (apply_move already maintains big_board).
-    char meta_w = st.g.meta_winner();
-    if (meta_w == me) return w.meta_win;
-    if (meta_w == other(me)) return -w.meta_win;
-    if (st.g.big_board.is_full()) return 0;
-    if (depth <= 0) return evaluate(st, me, w);
+// Bitboard negamax with alpha-beta pruning. `me_is_x` fixes the evaluation
+// perspective for the whole subtree (matching the original, which always scored
+// from the root mover's view and negated through the recursion).
+inline int negamax(bb::BitState st, int depth, int alpha, int beta, bool me_is_x,
+                   const Weights& w) {
+    if (bb::is_win(st.meta_x)) return me_is_x ? w.meta_win : -w.meta_win;
+    if (bb::is_win(st.meta_o)) return me_is_x ? -w.meta_win : w.meta_win;
+    if (st.all_resolved()) return 0;
+    if (depth <= 0) return evaluate(st, me_is_x, w);
 
-    auto moves = st.g.legal_moves(st.forced_br, st.forced_bc);
-    if (moves.empty()) return 0;
+    bb::BMove moves[81];
+    int n = bb::gather_moves(st, moves);
+    if (n == 0) return 0;
 
     int best = std::numeric_limits<int>::min() / 4;
-    for (const auto& m : moves) {
-        State child = st;
-        ult_ttt::ApplyResult res;
-        if (!apply(child, m, res)) continue;
+    for (int i = 0; i < n; i++) {
+        bb::BitState child = st;
+        bool game_over = bb::apply(child, moves[i].board, moves[i].cell);
 
-        // Small heuristic: if we "send" opponent to a finished board, they get freedom; penalize.
-        int send_pen = 0;
-        if (res.next_br == -1 && res.next_bc == -1) send_pen = -w.send_to_finished_penalty;
+        // Penalize sending the opponent to a finished board (they get a free choice).
+        int send_pen = (!game_over && child.forced < 0) ? -w.send_to_finished_penalty : 0;
 
-        int val = -negamax(child, depth - 1, -beta, -alpha, me, w) + send_pen;
+        int val = -negamax(child, depth - 1, -beta, -alpha, me_is_x, w) + send_pen;
         if (val > best) best = val;
         if (val > alpha) alpha = val;
         if (alpha >= beta) break;
@@ -142,34 +135,37 @@ inline int negamax(State st, int depth, int alpha, int beta, char me, const Weig
 }
 
 inline ult_ttt::Move best_move(const State& st, int depth, const Weights& w, std::uint32_t seed = 1) {
-    auto moves = st.g.legal_moves(st.forced_br, st.forced_bc);
-    if (moves.empty()) return ult_ttt::Move{-1, -1, -1, -1};
+    bb::BitState bs = bb::from_ult(st.g, st.to_move, st.forced_br, st.forced_bc);
+
+    bb::BMove moves[81];
+    int n = bb::gather_moves(bs, moves);
+    if (n == 0) return ult_ttt::Move{-1, -1, -1, -1};
 
     std::mt19937 rng(seed);
-    std::shuffle(moves.begin(), moves.end(), rng); // tie-break randomness
+    std::shuffle(moves, moves + n, rng); // tie-break randomness
 
-    const char me = st.to_move;
+    const bool me_is_x = (st.to_move == 'X');
     int alpha = std::numeric_limits<int>::min() / 4;
     int beta = std::numeric_limits<int>::max() / 4;
 
     int bestScore = std::numeric_limits<int>::min() / 4;
-    ult_ttt::Move best = moves.front();
+    bb::BMove best = moves[0];
 
-    for (const auto& m : moves) {
-        State child = st;
-        ult_ttt::ApplyResult res;
-        if (!apply(child, m, res)) continue;
+    for (int i = 0; i < n; i++) {
+        bb::BitState child = bs;
+        bool game_over = bb::apply(child, moves[i].board, moves[i].cell);
 
-        int move_bonus = pos_bonus(m.r, m.c, w);
-        int val = -negamax(child, depth - 1, -beta, -alpha, me, w) + move_bonus;
+        int move_bonus = pos_bonus(moves[i].cell / 3, moves[i].cell % 3, w);
+        int send_pen = (!game_over && child.forced < 0) ? -w.send_to_finished_penalty : 0;
+        int val = -negamax(child, depth - 1, -beta, -alpha, me_is_x, w) + move_bonus + send_pen;
 
         if (val > bestScore) {
             bestScore = val;
-            best = m;
+            best = moves[i];
         }
         if (val > alpha) alpha = val;
     }
-    return best;
+    return ult_ttt::Move{best.board / 3, best.board % 3, best.cell / 3, best.cell % 3};
 }
 
 // ---- Simple "training": hill-climb weights via self-play matches ----
