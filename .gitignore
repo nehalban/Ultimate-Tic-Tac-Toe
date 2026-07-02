@@ -1,5 +1,6 @@
 /.qodo
 /.vscode
 /.gitignore
-/graphify-out
 /ultimate_ttt.exe
+/ultimate_ttt.dSYM
+ultimate_ttt

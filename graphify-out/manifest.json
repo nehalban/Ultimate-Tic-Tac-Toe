@@ -1,0 +1,67 @@
+{
+  "/Users/nehalbansal/Ultimate-Tic-Tac-Toe/tictactoe.hpp": {
+    "mtime": 1782895120.538085,
+    "ast_hash": "4c15b4599e076d22e442c09da778f1a6",
+    "semantic_hash": "4c15b4599e076d22e442c09da778f1a6"
+  },
+  "/Users/nehalbansal/Ultimate-Tic-Tac-Toe/ultimate_ttt.cpp": {
+    "mtime": 1782989188.249761,
+    "ast_hash": "2649247249de770efec69bf6503aa27d",
+    "semantic_hash": "2649247249de770efec69bf6503aa27d"
+  },
+  "/Users/nehalbansal/Ultimate-Tic-Tac-Toe/ultimate_ttt.hpp": {
+    "mtime": 1782895120.5362225,
+    "ast_hash": "13485ab36dc72731ae602c0e315aa34e",
+    "semantic_hash": "13485ab36dc72731ae602c0e315aa34e"
+  },
+  "/Users/nehalbansal/Ultimate-Tic-Tac-Toe/CLAUDE.md": {
+    "mtime": 1782802322.8068013,
+    "ast_hash": "1bab8f84e6274270b378ee457d4d24a8",
+    "semantic_hash": "1bab8f84e6274270b378ee457d4d24a8"
+  },
+  "/Users/nehalbansal/Ultimate-Tic-Tac-Toe/README.md": {
+    "mtime": 1782895120.5411906,
+    "ast_hash": "4e108d774cef3b660295a945f35da27e",
+    "semantic_hash": "4e108d774cef3b660295a945f35da27e"
+  },
+  "/Users/nehalbansal/Ultimate-Tic-Tac-Toe/.claude/settings.local.json": {
+    "mtime": 1782813927.89627,
+    "ast_hash": "10538cb6ce715a75e6c92fd469e7549a",
+    "semantic_hash": "10538cb6ce715a75e6c92fd469e7549a"
+  },
+  "/Users/nehalbansal/Ultimate-Tic-Tac-Toe/bench_vs_random.cpp": {
+    "mtime": 1782989207.2639847,
+    "ast_hash": "4cafc6d6e0e1ddce54b7693c1bbdf6f1",
+    "semantic_hash": "4cafc6d6e0e1ddce54b7693c1bbdf6f1"
+  },
+  "/Users/nehalbansal/Ultimate-Tic-Tac-Toe/bitboard.hpp": {
+    "mtime": 1782895120.5298305,
+    "ast_hash": "e0b51e5a633ba1469a7879aecf39d4dd",
+    "semantic_hash": "e0b51e5a633ba1469a7879aecf39d4dd"
+  },
+  "/Users/nehalbansal/Ultimate-Tic-Tac-Toe/mcts_bot.hpp": {
+    "mtime": 1782895120.534484,
+    "ast_hash": "a330223a337816b8c7d025ca9baa1b1b",
+    "semantic_hash": "a330223a337816b8c7d025ca9baa1b1b"
+  },
+  "/Users/nehalbansal/Ultimate-Tic-Tac-Toe/negamax_bot.hpp": {
+    "mtime": 1782989744.3016696,
+    "ast_hash": "a2aaee499de3f9209d2fa11715dae26e",
+    "semantic_hash": "a2aaee499de3f9209d2fa11715dae26e"
+  },
+  "/Users/nehalbansal/Ultimate-Tic-Tac-Toe/random_bot.hpp": {
+    "mtime": 1782989159.7730246,
+    "ast_hash": "0adc49e31971a23854f5fb3de3d85d86",
+    "semantic_hash": "0adc49e31971a23854f5fb3de3d85d86"
+  },
+  "/Users/nehalbansal/Ultimate-Tic-Tac-Toe/transposition.hpp": {
+    "mtime": 1782895120.532343,
+    "ast_hash": "08b697e8b0fb9df4a8165db00384282e",
+    "semantic_hash": "08b697e8b0fb9df4a8165db00384282e"
+  },
+  "/Users/nehalbansal/Ultimate-Tic-Tac-Toe/PERFORMANCE.md": {
+    "mtime": 1782989884.1917648,
+    "ast_hash": "91c61deac0e6d18cc6c4250e7735afb1",
+    "semantic_hash": "91c61deac0e6d18cc6c4250e7735afb1"
+  }
+}

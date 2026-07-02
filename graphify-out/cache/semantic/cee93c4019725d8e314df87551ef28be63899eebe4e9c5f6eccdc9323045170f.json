@@ -1,0 +1,1 @@
+{"nodes": [{"id": "claude_coding_guidelines", "label": "LLM coding behavioral guidelines", "file_type": "concept", "source_file": "CLAUDE.md", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": "Think before coding, simplicity first, surgical changes, goal-driven execution."}], "edges": [], "hyperedges": []}
