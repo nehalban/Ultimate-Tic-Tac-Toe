@@ -1,6 +1,7 @@
 #include "ultimate_ttt.hpp"
 #include "negamax_bot.hpp"
 #include "mcts_bot.hpp"
+#include "random_bot.hpp"
 
 #include <chrono>
 #include <cstdint>
@@ -32,7 +33,8 @@ int main() {
         std::cout << "Choose opponent AI:\n"
                   << "  1) Negamax (alpha-beta)\n"
                   << "  2) MCTS\n"
-                  << "Enter 1-2: ";
+                  << "  3) Random (uniform legal move)\n"
+                  << "Enter 1-3: ";
         int algo = 1;
         if (!(std::cin >> algo)) return 0;
 
@@ -41,6 +43,8 @@ int main() {
         if (algo == 2) {
             std::cout << "MCTS iterations (e.g. 20000): ";
             if (!(std::cin >> mc.iterations)) return 0;
+        } else if (algo == 3) {
+            // Random needs no configuration.
         } else {
             std::cout << "Bot depth (suggest 2-4): ";
             if (!(std::cin >> depth)) return 0;
@@ -101,6 +105,8 @@ int main() {
                     work = mc.iterations;
                     unit = "paths searched";
                     mc.seed++; // vary rollouts across moves
+                } else if (algo == 3) {
+                    bm = random_bot::best_move(st.g, st.to_move, st.forced_br, st.forced_bc, seed++);
                 } else {
                     bm = negamax::best_move(st, depth, w, seed++);
                     work = negamax::node_counter();
@@ -109,7 +115,8 @@ int main() {
                 double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
                 std::cout << "Bot plays: (" << bm.br << "," << bm.bc << ") (" << bm.r << "," << bm.c << ")\n";
                 char buf[96];
-                std::snprintf(buf, sizeof(buf), "  (%lld %s in %.3f seconds)\n", work, unit, secs);
+                if (algo == 3) std::snprintf(buf, sizeof(buf), "  (random move in %.3f seconds)\n", secs);
+                else std::snprintf(buf, sizeof(buf), "  (%lld %s in %.3f seconds)\n", work, unit, secs);
                 std::cout << buf;
                 ult_ttt::ApplyResult res;
                 if (!negamax::apply(st, bm, res)) {
