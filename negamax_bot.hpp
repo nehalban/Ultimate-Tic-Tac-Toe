@@ -180,17 +180,19 @@ inline void order_moves(const bb::BitState& st, bb::BMove* moves, int n,
     }
 }
 
-// Bitboard negamax with a transposition table and move ordering. `me_is_x` fixes
-// the evaluation perspective for the whole subtree (matching the original, which
-// always scored from the root mover's view and negated through the recursion).
-inline int negamax(bb::BitState st, int depth, int alpha, int beta, bool me_is_x,
+// Bitboard negamax with a transposition table and move ordering. Values are from
+// the perspective of the side to move at each node (textbook negamax), so the
+// per-ply negation is correct at every depth. (An earlier version scored from a
+// fixed root perspective, which made odd-depth searches evaluate the frontier from
+// the wrong side and play badly - see PERFORMANCE.md.)
+inline int negamax(bb::BitState st, int depth, int alpha, int beta,
                    const Weights& w, tt::Table& table, Killers& kt, long long& nodes) {
     ++nodes;
-    // Terminal by meta board winner / all boards resolved.
-    if (bb::is_win(st.meta_x)) return me_is_x ? w.meta_win : -w.meta_win;
-    if (bb::is_win(st.meta_o)) return me_is_x ? -w.meta_win : w.meta_win;
+    // A completed meta line means the side to move has already lost (the opponent
+    // completed it on the previous move); a full board with no winner is a draw.
+    if (bb::is_win(st.meta_x) || bb::is_win(st.meta_o)) return -w.meta_win;
     if (st.all_resolved()) return 0;
-    if (depth <= 0) return evaluate(st, me_is_x, w);
+    if (depth <= 0) return evaluate(st, st.to_move == 'X', w);
 
     const int alpha0 = alpha;
     int tt_val;
@@ -218,7 +220,7 @@ inline int negamax(bb::BitState st, int depth, int alpha, int beta, bool me_is_x
         // which would let move ordering change the chosen move (it must not).
         int e = (!game_over && child.forced < 0) ? -w.send_to_finished_penalty : 0;
 
-        int val = e - negamax(child, depth - 1, e - beta, e - alpha, me_is_x, w, table, kt, nodes);
+        int val = e - negamax(child, depth - 1, e - beta, e - alpha, w, table, kt, nodes);
         if (val > best) {
             best = val;
             best_mv = static_cast<std::uint8_t>(moves[i].board * 9 + moves[i].cell);
@@ -242,7 +244,6 @@ inline ult_ttt::Move best_move(const State& st, int depth, const Weights& w, std
     std::mt19937 rng(seed);
     std::shuffle(moves, moves + n, rng); // tie-break randomness (same order+rng as before)
 
-    const bool me_is_x = (st.to_move == 'X');
     int alpha = std::numeric_limits<int>::min() / 4;
     int beta = std::numeric_limits<int>::max() / 4;
 
@@ -268,7 +269,7 @@ inline ult_ttt::Move best_move(const State& st, int depth, const Weights& w, std
         int move_bonus = pos_bonus(moves[i].cell / 3, moves[i].cell % 3, w);
         int send_pen = (!game_over && child.forced < 0) ? -w.send_to_finished_penalty : 0;
         int e = move_bonus + send_pen; // root edge bonus, folded into the window (see negamax)
-        int val = e - negamax(child, depth - 1, e - beta, e - alpha, me_is_x, w, table, killers, nodes);
+        int val = e - negamax(child, depth - 1, e - beta, e - alpha, w, table, killers, nodes);
 
         if (val > bestScore) {
             bestScore = val;
