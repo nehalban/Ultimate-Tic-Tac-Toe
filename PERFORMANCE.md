@@ -1,9 +1,16 @@
-# Performance Analysis: Negamax & MCTS vs a Random Opponent
+# Performance Analysis: Negamax vs MCTS
 
-Benchmark of the two AI engines against a uniform-random legal-move player, to
-gauge raw playing strength and how it scales with search effort. Running this
-benchmark surfaced a depth-parity bug in the negamax evaluation, which has since
-been fixed; both the fixed results and the original (buggy) results are shown.
+Benchmarks of the two AI engines: first against a uniform-random baseline (to
+gauge raw strength and how it scales), then **head-to-head against each other and
+normalized by compute time** (the section that actually answers "which is
+better"). The random benchmark also surfaced a depth-parity bug in the negamax
+evaluation, since fixed; both fixed and original (buggy) numbers are shown.
+
+**TL;DR:** the optimized negamax (alpha-beta + transposition table + move
+ordering) is stronger *per millisecond* and is the better default for interactive
+play; MCTS wins only when given several times more time per move, but scales
+smoothly and needs no evaluation function. See
+[Optimized Negamax vs MCTS](#optimized-negamax-vs-mcts--which-is-better).
 
 ## Methodology
 
@@ -96,12 +103,141 @@ weights tuned against the old objective should be re-tuned.
 
 1. **Re-tune the negamax weights** against the corrected search (the previous
    tuning targeted the flawed objective).
-2. **Add a Negamax-vs-MCTS matrix and a fixed non-trivial baseline** (e.g. depth-2
-   negamax) to the benchmark suite to measure strength above the random floor.
+2. **Head-to-head matrix — done** (see the next section). Remaining: add
+   iterative-deepening negamax with time control so the two can be compared at a
+   *matched* time budget beyond depth 6.
 3. Consider a light/heuristic MCTS rollout policy and a time-based budget for a
    fairer, stronger MCTS.
 
+## Optimized Negamax vs MCTS — which is better?
+
+Against random both engines are saturated, so the decisive test is how they do
+**against each other**, and at what compute cost. Data below is from
+[`bench_head2head.cpp`](bench_head2head.cpp): 40 games per pairing, alternating
+colors, single thread, corrected (side-to-move) negamax with TT + move ordering.
+
+### Cost — time per move
+
+The two engines live in very different cost regimes. Negamax with alpha-beta +
+transposition table + move ordering searches a depth-6 tree in under 2 ms;
+MCTS's cost is linear in its iteration budget.
+
+```
+Time per move (ms, single thread)          (bar = relative cost)
+Negamax d2   0.12  ▏
+Negamax d4   0.21  ▏
+Negamax d6   1.84  ███
+MCTS  1000   1.58  ██▌
+MCTS  5000   6.79  ███████████
+MCTS 20000  26.93  ████████████████████████████████████████████
+```
+
+<!-- Renders as a chart on GitHub -->
+```mermaid
+xychart-beta
+    title "Time per move (ms, single thread)"
+    x-axis ["Nega d2", "Nega d4", "Nega d6", "MCTS 1k", "MCTS 5k", "MCTS 20k"]
+    y-axis "ms / move" 0 --> 28
+    bar [0.12, 0.21, 1.84, 1.58, 6.79, 26.93]
+```
+
+### Head-to-head win rates (MCTS's perspective)
+
+🔵 = MCTS favored (>55%) · ⚪ = roughly even (45–55%) · 🟠 = Negamax favored (<45%)
+
+| Negamax ↓ / MCTS → | 1000 (1.6 ms) | 5000 (6.8 ms) | 20000 (26.9 ms) |
+|---|:--:|:--:|:--:|
+| **d2** (0.12 ms) | 77.5% 🔵 | 85.0% 🔵 | 91.2% 🔵 |
+| **d4** (0.21 ms) | 35.0% 🟠 | 51.2% ⚪ | 85.0% 🔵 |
+| **d6** (1.84 ms) | 31.2% 🟠 | 58.8% 🔵 | 66.2% 🔵 |
+
+MCTS win-rate as its budget grows (each track is 0–100%, `│` marks 50%):
+
+```
+vs Negamax d2   1000   ████████████████░░░░  77.5%
+                5000   █████████████████░░░  85.0%
+               20000   ██████████████████░░  91.2%
+vs Negamax d4   1000   ███████░░░░░░░░░░░░░  35.0%
+                5000   ██████████░░░░░░░░░░  51.2%
+               20000   █████████████████░░░  85.0%
+vs Negamax d6   1000   ██████░░░░░░░░░░░░░░  31.2%
+                5000   ████████████░░░░░░░░  58.8%
+               20000   █████████████░░░░░░░  66.2%
+                              │ 50%
+```
+
+Reading it: against a *weak* negamax (d2) MCTS wins at any budget; against a
+*strong* negamax (d4/d6) MCTS **loses** at 1000 iterations and only pulls ahead
+once given 5–20k.
+
+### The decisive comparison — strength at equal time
+
+Win rates alone favor "just give MCTS more iterations." Normalizing by
+**time per move** flips the picture:
+
+| Time budget | Negamax config | MCTS config | Winner |
+|---|---|---|---|
+| **~1.7 ms** | d6 (1.84 ms) | 1000 (1.58 ms) | **Negamax 68.8%** |
+| ~0.2 ms vs 1.6 ms | d4 (0.21 ms) | 1000 (1.58 ms) | **Negamax 65%** — using ⅛ the time |
+| ~6.8 ms | (d6 = 1.8 ms; no deeper config tested) | 5000 (6.79 ms) | MCTS 58.8% vs d6 |
+| ~27 ms | (only up to d6 tested) | 20000 (26.9 ms) | MCTS 66.2% vs d6 |
+
+**At equal wall-clock, optimized Negamax is stronger** — depth 6 beats MCTS-1000
+better than 2-to-1 at the same ~1.7 ms, and depth 4 beats MCTS-1000 while
+spending an eighth of the time. MCTS only wins by spending **4–30× more time per
+move** than the negamax configs it beats.
+
+> **Caveat:** the matrix caps negamax at depth 6. A fully time-fair test at ~27 ms
+> would pit MCTS-20000 against negamax depth 8+, which was not run — so "MCTS-20k
+> wins" means *against negamax ≤ d6*, not against a time-matched negamax.
+
+### Why each wins where it does
+
+| Dimension | Optimized Negamax | MCTS |
+|---|---|---|
+| Time to a strong move | **sub-ms – 2 ms** | 5 – 27 ms |
+| Strength per millisecond | **higher** (wins at equal time) | lower at small budgets |
+| Anytime / smooth scaling | no — fixed depth, discrete jumps | **yes** — more time ⇒ stronger |
+| Needs an evaluation function | yes (hand-tuned `Weights`) | **no** (learns from rollouts) |
+| Determinism | **deterministic** (given seed) | stochastic (variance across runs) |
+| Memory | small + TT (~12 MB) | tree grows with iterations |
+| Big branching factor | handled via pruning + TT + ordering | handled **naturally** |
+| Main weakness | horizon effect; needs a good eval | weak at tiny budgets; uniform-random rollouts are a crude opponent model |
+
+**Why Negamax wins the time race here:** the transposition table + move ordering
+make each node cheap and prune the tree hard, so a full depth-6 look-ahead costs
+about as much as *one thousand* MCTS playouts — and a exact 6-ply search with a
+decent evaluation simply outplays 1000 shallow random rollouts.
+
+**Why MCTS wins with more time:** it has no fixed horizon. Every extra iteration
+sharpens its estimates, so with enough budget it surpasses any *fixed* negamax
+depth — and it needs no evaluation function to do it.
+
+### Verdict
+
+```mermaid
+flowchart TD
+    A[Choosing an engine] --> B{Time budget per move}
+    B -->|"under ~2 ms (interactive)"| C[Optimized Negamax d4–d6]
+    B -->|"5 ms+ and want anytime scaling"| D[MCTS 5k–20k+]
+    C --> E{Need deterministic / reproducible?}
+    E -->|yes| C
+    D --> F{Avoid maintaining an eval function?}
+    F -->|yes| D
+```
+
+- **For this project's interactive play** (a move must return in well under a
+  second): **optimized Negamax is the better default** — it is stronger per
+  millisecond and deterministic. Depths 4–6 give strong, instant play.
+- **Choose MCTS** when you can spend more time per move, want strength to scale
+  smoothly with that time, or prefer not to maintain a hand-tuned evaluation.
+- **Best of both (future work):** iterative-deepening negamax with time control
+  for a fair anytime comparison, and MCTS with an eval-guided rollout/prior — the
+  two ideas are complementary.
+
 ## Raw output (current engine)
+
+### vs Random
 
 ```
 == Negamax vs Random ==
@@ -117,4 +253,27 @@ MCTS 500       games= 300  W= 299  D=  0  L=  1  winrate= 99.7%
 MCTS 1000      games= 200  W= 200  D=  0  L=  0  winrate=100.0%
 MCTS 5000      games= 150  W= 150  D=  0  L=  0  winrate=100.0%
 MCTS 20000     games=  80  W=  80  D=  0  L=  0  winrate=100.0%
+```
+
+### Head-to-head (Negamax vs MCTS)
+
+```
+== Time per move (ms, single thread) ==
+Negamax d2  : 0.12 ms/move
+Negamax d4  : 0.21 ms/move
+Negamax d6  : 1.84 ms/move
+MCTS 1000   : 1.58 ms/move
+MCTS 5000   : 6.79 ms/move
+MCTS 20000  : 26.93 ms/move
+
+== Head-to-head (win-rate from MCTS perspective) ==
+Nega d2  vs MCTS 1000    games= 40  MCTS: W= 28 D=  6 L=  6  MCTS winrate= 77.5%
+Nega d2  vs MCTS 5000    games= 40  MCTS: W= 32 D=  4 L=  4  MCTS winrate= 85.0%
+Nega d2  vs MCTS 20000   games= 40  MCTS: W= 35 D=  3 L=  2  MCTS winrate= 91.2%
+Nega d4  vs MCTS 1000    games= 40  MCTS: W= 10 D=  8 L= 22  MCTS winrate= 35.0%
+Nega d4  vs MCTS 5000    games= 40  MCTS: W= 17 D=  7 L= 16  MCTS winrate= 51.2%
+Nega d4  vs MCTS 20000   games= 40  MCTS: W= 30 D=  8 L=  2  MCTS winrate= 85.0%
+Nega d6  vs MCTS 1000    games= 40  MCTS: W=  7 D= 11 L= 22  MCTS winrate= 31.2%
+Nega d6  vs MCTS 5000    games= 40  MCTS: W= 17 D= 13 L= 10  MCTS winrate= 58.8%
+Nega d6  vs MCTS 20000   games= 40  MCTS: W= 22 D=  9 L=  9  MCTS winrate= 66.2%
 ```
