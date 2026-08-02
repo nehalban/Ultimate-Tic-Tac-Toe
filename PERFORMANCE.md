@@ -30,9 +30,9 @@ smoothly and needs no evaluation function. See
 
 | Depth | Games | W | D | L | Win-rate |
 |------:|------:|--:|--:|--:|---------:|
-| 1     | 300   | 245 | 2 | 53 | **82.0%** |
-| 2     | 300   | 295 | 3 | 2  | **98.8%** |
-| 3     | 300   | 299 | 1 | 0  | **99.8%** |
+| 1     | 300   | 243 | 8 | 49 | **82.3%** |
+| 2     | 300   | 296 | 3 | 1  | **99.2%** |
+| 3     | 300   | 297 | 2 | 1  | **99.3%** |
 | 4     | 200   | 198 | 2 | 0  | **99.5%** |
 | 5     | 200   | 199 | 0 | 1  | **99.5%** |
 | 6     | 100   | 100 | 0 | 0  | **100.0%** |
@@ -124,12 +124,12 @@ MCTS's cost is linear in its iteration budget.
 
 ```
 Time per move (ms, single thread)          (bar = relative cost)
-Negamax d2   0.12  ▏
-Negamax d4   0.21  ▏
-Negamax d6   1.84  ███
-MCTS  1000   1.58  ██▌
-MCTS  5000   6.79  ███████████
-MCTS 20000  26.93  ████████████████████████████████████████████
+Negamax d2   0.13  ▏
+Negamax d4   0.25  ▏
+Negamax d6   3.02  ███
+MCTS  1000   2.00  ██
+MCTS  5000  10.56  █████████
+MCTS 20000  46.35  ████████████████████████████████████████████
 ```
 
 <!-- Renders as a chart on GitHub -->
@@ -137,32 +137,32 @@ MCTS 20000  26.93  ████████████████████�
 xychart-beta
     title "Time per move (ms, single thread)"
     x-axis ["Nega d2", "Nega d4", "Nega d6", "MCTS 1k", "MCTS 5k", "MCTS 20k"]
-    y-axis "ms / move" 0 --> 28
-    bar [0.12, 0.21, 1.84, 1.58, 6.79, 26.93]
+    y-axis "ms / move" 0 --> 50
+    bar [0.13, 0.25, 3.02, 2.00, 10.56, 46.35]
 ```
 
 ### Head-to-head win rates (MCTS's perspective)
 
 🔵 = MCTS favored (>55%) · ⚪ = roughly even (45–55%) · 🟠 = Negamax favored (<45%)
 
-| Negamax ↓ / MCTS → | 1000 (1.6 ms) | 5000 (6.8 ms) | 20000 (26.9 ms) |
+| Negamax ↓ / MCTS → | 1000 (2.0 ms) | 5000 (10.6 ms) | 20000 (46.4 ms) |
 |---|:--:|:--:|:--:|
-| **d2** (0.12 ms) | 77.5% 🔵 | 85.0% 🔵 | 91.2% 🔵 |
-| **d4** (0.21 ms) | 35.0% 🟠 | 51.2% ⚪ | 85.0% 🔵 |
-| **d6** (1.84 ms) | 31.2% 🟠 | 58.8% 🔵 | 66.2% 🔵 |
+| **d2** (0.13 ms) | 63.8% 🔵 | 87.5% 🔵 | 92.5% 🔵 |
+| **d4** (0.25 ms) | 23.8% 🟠 | 66.2% 🔵 | 76.2% 🔵 |
+| **d6** (3.02 ms) | 17.5% 🟠 | 43.8% 🟠 | 67.5% 🔵 |
 
 MCTS win-rate as its budget grows (each track is 0–100%, `│` marks 50%):
 
 ```
-vs Negamax d2   1000   ████████████████░░░░  77.5%
-                5000   █████████████████░░░  85.0%
-               20000   ██████████████████░░  91.2%
-vs Negamax d4   1000   ███████░░░░░░░░░░░░░  35.0%
-                5000   ██████████░░░░░░░░░░  51.2%
-               20000   █████████████████░░░  85.0%
-vs Negamax d6   1000   ██████░░░░░░░░░░░░░░  31.2%
-                5000   ████████████░░░░░░░░  58.8%
-               20000   █████████████░░░░░░░  66.2%
+vs Negamax d2   1000   ████████████░░░░░░░░  63.8%
+                5000   █████████████████░░░  87.5%
+               20000   ██████████████████░░  92.5%
+vs Negamax d4   1000   ████░░░░░░░░░░░░░░░░  23.8%
+                5000   █████████████░░░░░░░  66.2%
+               20000   ███████████████░░░░░  76.2%
+vs Negamax d6   1000   ███░░░░░░░░░░░░░░░░░  17.5%
+                5000   ████████░░░░░░░░░░░░  43.8%
+               20000   █████████████░░░░░░░  67.5%
                               │ 50%
 ```
 
@@ -177,14 +177,14 @@ Win rates alone favor "just give MCTS more iterations." Normalizing by
 
 | Time budget | Negamax config | MCTS config | Winner |
 |---|---|---|---|
-| **~1.7 ms** | d6 (1.84 ms) | 1000 (1.58 ms) | **Negamax 68.8%** |
-| ~0.2 ms vs 1.6 ms | d4 (0.21 ms) | 1000 (1.58 ms) | **Negamax 65%** — using ⅛ the time |
-| ~6.8 ms | (d6 = 1.8 ms; no deeper config tested) | 5000 (6.79 ms) | MCTS 58.8% vs d6 |
-| ~27 ms | (only up to d6 tested) | 20000 (26.9 ms) | MCTS 66.2% vs d6 |
+| **~2-3 ms** | d6 (3.02 ms) | 1000 (2.00 ms) | **Negamax 82.5%** |
+| ~0.3 ms vs 2.0 ms | d4 (0.25 ms) | 1000 (2.00 ms) | **Negamax 76.2%** — using ⅛ the time |
+| ~10.6 ms | (d6 = 3.0 ms; no deeper config tested) | 5000 (10.56 ms) | Negamax 56.2% vs d6 |
+| ~46.4 ms | (only up to d6 tested) | 20000 (46.35 ms) | MCTS 67.5% vs d6 |
 
 **At equal wall-clock, optimized Negamax is stronger** — depth 6 beats MCTS-1000
-better than 2-to-1 at the same ~1.7 ms, and depth 4 beats MCTS-1000 while
-spending an eighth of the time. MCTS only wins by spending **4–30× more time per
+better than 4-to-1 at the same ~2-3 ms, and depth 4 beats MCTS-1000 while
+spending an eighth of the time. MCTS only wins by spending **15–30× more time per
 move** than the negamax configs it beats.
 
 > **Caveat:** the matrix caps negamax at depth 6. A fully time-fair test at ~27 ms
@@ -241,9 +241,9 @@ flowchart TD
 
 ```
 == Negamax vs Random ==
-Negamax d1     games= 300  W= 245  D=  2  L= 53  winrate= 82.0%
-Negamax d2     games= 300  W= 295  D=  3  L=  2  winrate= 98.8%
-Negamax d3     games= 300  W= 299  D=  1  L=  0  winrate= 99.8%
+Negamax d1     games= 300  W= 243  D=  8  L= 49  winrate= 82.3%
+Negamax d2     games= 300  W= 296  D=  3  L=  1  winrate= 99.2%
+Negamax d3     games= 300  W= 297  D=  2  L=  1  winrate= 99.3%
 Negamax d4     games= 200  W= 198  D=  2  L=  0  winrate= 99.5%
 Negamax d5     games= 200  W= 199  D=  0  L=  1  winrate= 99.5%
 Negamax d6     games= 100  W= 100  D=  0  L=  0  winrate=100.0%
@@ -259,21 +259,21 @@ MCTS 20000     games=  80  W=  80  D=  0  L=  0  winrate=100.0%
 
 ```
 == Time per move (ms, single thread) ==
-Negamax d2  : 0.12 ms/move
-Negamax d4  : 0.21 ms/move
-Negamax d6  : 1.84 ms/move
-MCTS 1000   : 1.58 ms/move
-MCTS 5000   : 6.79 ms/move
-MCTS 20000  : 26.93 ms/move
+Negamax d2  : 0.13 ms/move
+Negamax d4  : 0.25 ms/move
+Negamax d6  : 3.02 ms/move
+MCTS 1000   : 2.00 ms/move
+MCTS 5000   : 10.56 ms/move
+MCTS 20000  : 46.35 ms/move
 
 == Head-to-head (win-rate from MCTS perspective) ==
-Nega d2  vs MCTS 1000    games= 40  MCTS: W= 28 D=  6 L=  6  MCTS winrate= 77.5%
-Nega d2  vs MCTS 5000    games= 40  MCTS: W= 32 D=  4 L=  4  MCTS winrate= 85.0%
-Nega d2  vs MCTS 20000   games= 40  MCTS: W= 35 D=  3 L=  2  MCTS winrate= 91.2%
-Nega d4  vs MCTS 1000    games= 40  MCTS: W= 10 D=  8 L= 22  MCTS winrate= 35.0%
-Nega d4  vs MCTS 5000    games= 40  MCTS: W= 17 D=  7 L= 16  MCTS winrate= 51.2%
-Nega d4  vs MCTS 20000   games= 40  MCTS: W= 30 D=  8 L=  2  MCTS winrate= 85.0%
-Nega d6  vs MCTS 1000    games= 40  MCTS: W=  7 D= 11 L= 22  MCTS winrate= 31.2%
-Nega d6  vs MCTS 5000    games= 40  MCTS: W= 17 D= 13 L= 10  MCTS winrate= 58.8%
-Nega d6  vs MCTS 20000   games= 40  MCTS: W= 22 D=  9 L=  9  MCTS winrate= 66.2%
+Nega d2  vs MCTS 1000    games= 40  MCTS: W= 19 D= 13 L=  8  MCTS winrate= 63.8%
+Nega d2  vs MCTS 5000    games= 40  MCTS: W= 33 D=  4 L=  3  MCTS winrate= 87.5%
+Nega d2  vs MCTS 20000   games= 40  MCTS: W= 34 D=  6 L=  0  MCTS winrate= 92.5%
+Nega d4  vs MCTS 1000    games= 40  MCTS: W=  6 D=  7 L= 27  MCTS winrate= 23.8%
+Nega d4  vs MCTS 5000    games= 40  MCTS: W= 24 D=  5 L= 11  MCTS winrate= 66.2%
+Nega d4  vs MCTS 20000   games= 40  MCTS: W= 29 D=  3 L=  8  MCTS winrate= 76.2%
+Nega d6  vs MCTS 1000    games= 40  MCTS: W=  3 D=  8 L= 29  MCTS winrate= 17.5%
+Nega d6  vs MCTS 5000    games= 40  MCTS: W= 12 D= 11 L= 17  MCTS winrate= 43.8%
+Nega d6  vs MCTS 20000   games= 40  MCTS: W= 22 D= 10 L=  8  MCTS winrate= 67.5%
 ```

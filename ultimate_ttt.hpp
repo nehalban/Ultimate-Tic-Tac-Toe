@@ -44,7 +44,7 @@ struct ult_ttt {
     bool board_done(int br, int bc) const { return small_status[br][bc] != '.'; }
     bool in_bounds_3(int x) const { return 0 <= x && x <= 2; }
 
-    bool is_legal_move(const Move& m, int forced_br, int forced_bc) const { //forced sanity check unneccesary
+    bool is_legal_move(const Move& m, int forced_br, int forced_bc) const { // forced sanity check unnecessary
         if (!in_bounds_3(m.br) || !in_bounds_3(m.bc) || !in_bounds_3(m.r) || !in_bounds_3(m.c)) return false;
         if (board_done(m.br, m.bc)) return false;
         if (forced_br != -1 && forced_bc != -1) {

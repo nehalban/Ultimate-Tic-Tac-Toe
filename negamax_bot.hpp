@@ -24,18 +24,18 @@ struct Weights {
     int small_win = 10'000;
 
     // Line patterns (applies to both small boards and meta board)
-    int two_in_row = 80;    // "XX." for me
-    int one_in_row = 10;    // "X.." for me
-    int opp_two_in_row = 90; // opponent "OO."
-    int opp_one_in_row = 10;
+    int two_in_row = 83;    // "XX." for me
+    int one_in_row = 7;    // "X.." for me
+    int opp_two_in_row = 88; // opponent "OO."
+    int opp_one_in_row = 9;
 
     // Preference for playing in-center etc. (small cell only)
-    int center = 3;
+    int center = 11;
     int corner = 2;
     int edge = 1;
 
     // Incentivize sending opponent to a finished board (free move for them is bad)
-    int send_to_finished_penalty = 25;
+    int send_to_finished_penalty = 33;
 };
 
 struct State {
@@ -197,7 +197,10 @@ inline int negamax(bb::BitState st, int depth, int alpha, int beta,
     const int alpha0 = alpha;
     int tt_val;
     std::uint8_t tt_move;
-    if (table.probe(st.key, depth, alpha, beta, tt_val, tt_move)) return tt_val;
+    
+    // st.hash() automatically flips perspective for 'O' vs 'X' (Color Symmetry),
+    // allowing identical positions reached by opposite players to share hits.
+    if (table.probe(st.hash(), depth, alpha, beta, tt_val, tt_move)) return tt_val;
 
     bb::BMove moves[81];
     int n = bb::gather_moves(st, moves);
@@ -230,7 +233,7 @@ inline int negamax(bb::BitState st, int depth, int alpha, int beta,
     }
 
     const std::uint8_t flag = (best <= alpha0) ? tt::UPPER : (best >= beta) ? tt::LOWER : tt::EXACT;
-    table.store(st.key, depth, best, flag, best_mv);
+    table.store(st.hash(), depth, best, flag, best_mv);
     return best;
 }
 

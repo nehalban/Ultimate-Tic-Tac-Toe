@@ -50,8 +50,6 @@ public:
         }
     }
 
-    std::uint16_t generation() const { return gen_; }
-
     // On a usable cutoff, set out_val and return true. Always sets tt_move to the
     // stored best move for this key (NO_MOVE if absent) for move ordering.
     bool probe(std::uint64_t key, int depth, int alpha, int beta,
